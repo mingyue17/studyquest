@@ -28,7 +28,7 @@ create table if not exists modules (
   "userId"        uuid not null references users("userId") on delete cascade,
   "moduleCode"    text not null,
   "moduleName"    text not null,
-  "academicUnits" numeric(3,1) not null default 3,
+  "moduleCredits" numeric(3,1) not null default 3,
   "currentGrade"  text
 );
 create index if not exists modules_user_idx on modules("userId");
@@ -75,7 +75,7 @@ create table if not exists grades (
   "userId"        uuid not null references users("userId") on delete cascade,
   "moduleId"      uuid references modules("moduleId") on delete set null,
   "grade"         text not null,
-  "academicUnits" numeric(3,1) not null default 3,
+  "moduleCredits" numeric(3,1) not null default 3,
   "semester"      text not null
 );
 
@@ -150,7 +150,8 @@ create table if not exists "teamMembers" (
   "teamId"       uuid not null references teams("teamId") on delete cascade,
   "userId"       uuid references users("userId") on delete cascade,
   "displayName"  text not null,
-  "role"         text not null
+  "role"         text not null,
+  "avatarColor"  text not null default '#22e0ff' -- deterministic accent for the initials avatar
 );
 
 -- status: 'Backlog' | 'In Progress' | 'Review' | 'Merged'
@@ -162,7 +163,8 @@ create table if not exists "teamTasks" (
   "status"         text not null default 'Backlog',
   "deadline"       timestamptz,
   "xpReward"       integer not null default 40,
-  "blocker"        text
+  "blocker"        text,
+  "checklist"      jsonb not null default '[]'::jsonb -- [{ itemId, label, done }]
 );
 
 -- ---------- reflection, notifications, imports ----------
