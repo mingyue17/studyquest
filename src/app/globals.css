@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --scanline: rgba(255, 255, 255, 0.025);
+}
+
+body {
+  @apply bg-navy-950 text-slate-200 font-body antialiased;
+  background-image:
+    radial-gradient(circle at 15% -10%, rgba(34, 224, 255, 0.10), transparent 45%),
+    radial-gradient(circle at 85% 0%, rgba(255, 79, 216, 0.10), transparent 45%);
+  background-attachment: fixed;
+}
+
+/* Faint CRT scanlines — atmosphere without hurting readability. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  background: repeating-linear-gradient(to bottom, var(--scanline) 0 1px, transparent 1px 3px);
+}
+
+@layer components {
+  /* Chunky 4px border that reads as a pixel-game panel edge. */
+  .pixel-border {
+    @apply border-4 border-navy-600 shadow-pixel;
+    image-rendering: pixelated;
+  }
+  .pixel-heading {
+    @apply font-pixel uppercase tracking-widest leading-relaxed;
+  }
+  .arcade-button {
+    @apply font-pixel text-[10px] uppercase tracking-wider px-4 py-3 border-4 shadow-pixel
+           transition-transform active:translate-x-[2px] active:translate-y-[2px] active:shadow-pixel-sm
+           disabled:opacity-40 disabled:cursor-not-allowed disabled:active:translate-x-0;
+  }
+  .focus-ring {
+    @apply focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-neon-cyan/70;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  body::after { display: none; }
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: #0b1130; }
+::-webkit-scrollbar-thumb { background: #28337a; border: 2px solid #0b1130; }

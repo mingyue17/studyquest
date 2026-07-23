@@ -1,0 +1,330 @@
+'use client';
+
+import { create } from 'zustand';
+import type {
+  Badge, BossBattle, DailyQuest, Grade, Module, Notification, PetUnlock,
+  PlannedSession, Reflection, StreakRecord, StudySession, Task, TaskStatus,
+  Team, TeamMember, TeamTask, TeamTaskStatus, User,
+} from '@/types';
+import {
+  demoBoss, demoGrades, demoModules, demoNotifications, demoPetUnlocks,
+  demoReflections, demoSessions, demoStreakRecords, demoTasks, demoTeam,
+  demoTeamMembers, demoTeamTasks, demoUnlockedBadgeIds, demoUser,
+} from '@/data/demoData';
+import { XP_REWARDS, awardXp, calculateRank, determinePetStage } from '@/lib/gamification';
+import { calculatePriorityScore, generateSubquests } from '@/lib/priority';
+import { updateStreak, toDateKey } from '@/lib/streaks';
+import { checkBadgeUnlocks, generateDailyQuests, DAILY_COMPLETION_BONUS } from '@/lib/quests';
+import { DEFAULT_PREFERENCES, generateWeeklySchedule, type PlannerPreferences } from '@/lib/planner';
+import type { PetMood } from '@/types';
+
+interface Toast { id: string; title: string; body: string; tone: 'xp' | 'level' | 'badge' | 'warn' }
+
+interface StoreState {
+  user: User;
+  modules: Module[];
+  tasks: Task[];
+  sessions: StudySession[];
+  streakRecords: StreakRecord[];
+  grades: Grade[];
+  petUnlocks: PetUnlock[];
+  team: Team;
+  teamMembers: TeamMember[];
+  teamTasks: TeamTask[];
+  reflections: Reflection[];
+  notifications: Notification[];
+  boss: BossBattle;
+  unlockedBadgeIds: string[];
+  dailyQuests: DailyQuest[];
+  plannerPreferences: PlannerPreferences;
+  plannedSessions: PlannedSession[];
+  targetCgpa: number;
+  petMood: PetMood;
+  toasts: Toast[];
+
+  // actions
+  logStudyBlock: (minutes?: number, taskId?: string) => void;
+  setTaskStatus: (taskId: string, status: TaskStatus) => void;
+  setTaskProgress: (taskId: string, progress: number) => void;
+  splitIntoSubquests: (taskId: string) => void;
+  completeDailyQuest: (questId: string) => void;
+  damageBoss: (index: number) => void;
+  moveTeamTask: (teamTaskId: string, status: TeamTaskStatus) => void;
+  saveReflection: (reflection: Reflection) => void;
+  setModuleGrade: (moduleId: string, grade: string) => void;
+  setTargetCgpa: (value: number) => void;
+  regenerateSchedule: () => void;
+  movePlannedSession: (sessionId: string, day: number) => void;
+  togglePlannedSession: (sessionId: string) => void;
+  setPreferences: (prefs: Partial<PlannerPreferences>) => void;
+  equipItem: (unlockId: string) => void;
+  dismissToast: (id: string) => void;
+  setPetMood: (mood: PetMood) => void;
+}
+
+const nowIso = () => new Date().toISOString();
+
+export const useStore = create<StoreState>((set, get) => ({
+  user: demoUser,
+  modules: demoModules,
+  tasks: demoTasks,
+  sessions: demoSessions,
+  streakRecords: demoStreakRecords,
+  grades: demoGrades,
+  petUnlocks: demoPetUnlocks,
+  team: demoTeam,
+  teamMembers: demoTeamMembers,
+  teamTasks: demoTeamTasks,
+  reflections: demoReflections,
+  notifications: demoNotifications,
+  boss: demoBoss,
+  unlockedBadgeIds: demoUnlockedBadgeIds,
+  dailyQuests: generateDailyQuests(demoTasks, demoSessions),
+  plannerPreferences: {
+    ...DEFAULT_PREFERENCES,
+    weakModuleCodes: demoModules.filter((m) => m.isWeak).map((m) => m.moduleCode),
+  },
+  plannedSessions: generateWeeklySchedule(demoTasks, demoModules, {
+    ...DEFAULT_PREFERENCES,
+    weakModuleCodes: demoModules.filter((m) => m.isWeak).map((m) => m.moduleCode),
+  }),
+  targetCgpa: 4.3,
+  petMood: 'idle',
+  toasts: [],
+
+  /**
+   * Automation flow, steps 8–12: award XP → check badges → update streak →
+   * check level-up → evolve pet. Every mutation that earns XP routes through here.
+   */
+  logStudyBlock: (minutes = 30, taskId) => {
+    const state = get();
+    const session: StudySession = {
+      sessionId: crypto.randomUUID(),
+      userId: state.user.userId,
+      taskId: taskId ?? null,
+      durationMinutes: minutes,
+      scheduledStart: nowIso(),
+      completedAt: nowIso(),
+      xpEarned: Math.round((minutes / 30) * XP_REWARDS.logStudyBlock),
+    };
+    applyXp(set, get, 'logStudyBlock', session.xpEarned, session.sessionId, {
+      sessions: [session, ...state.sessions],
+    });
+    set({ petMood: 'happy' });
+    setTimeout(() => set({ petMood: 'idle' }), 3000);
+  },
+
+  setTaskStatus: (taskId, status) => {
+    const state = get();
+    const task = state.tasks.find((t) => t.taskId === taskId);
+    if (!task) return;
+
+    const nextTasks = state.tasks.map((t) =>
+      t.taskId === taskId
+        ? {
+            ...t,
+            status,
+            progress: status === 'Submitted' ? 100 : status === 'In Progress' ? Math.max(t.progress, 10) : t.progress,
+            completedAt: status === 'Submitted' ? nowIso() : null,
+            priorityScore: calculatePriorityScore({ ...t, status }),
+          }
+        : t);
+
+    if (status !== 'Submitted') {
+      set({ tasks: nextTasks });
+      return;
+    }
+
+    // XP: base reward, plus an early-submission bonus when there is a full day left.
+    const hoursEarly = (new Date(task.deadline).getTime() - Date.now()) / 3_600_000;
+    const base = task.weightage >= 15 ? XP_REWARDS.completeAssignment : XP_REWARDS.completeSmallQuest;
+    const bonus = hoursEarly >= 24 ? XP_REWARDS.submitEarlyBonus : 0;
+
+    applyXp(set, get, bonus ? 'completeAssignmentEarly' : 'completeAssignment', base + bonus, taskId, {
+      tasks: nextTasks,
+    });
+    set({ petMood: 'celebrating' });
+    setTimeout(() => set({ petMood: 'idle' }), 3500);
+  },
+
+  setTaskProgress: (taskId, progress) =>
+    set((s) => ({
+      tasks: s.tasks.map((t) =>
+        t.taskId === taskId
+          ? { ...t, progress, priorityScore: calculatePriorityScore({ ...t, progress }) }
+          : t),
+    })),
+
+  splitIntoSubquests: (taskId) => {
+    const state = get();
+    const task = state.tasks.find((t) => t.taskId === taskId);
+    if (!task || state.tasks.some((t) => t.parentTaskId === taskId)) return;
+    const subquests = generateSubquests(task).map((sq) => ({
+      ...sq, priorityScore: calculatePriorityScore(sq),
+    }));
+    set({ tasks: [...state.tasks, ...subquests] });
+  },
+
+  completeDailyQuest: (questId) => {
+    const state = get();
+    const quest = state.dailyQuests.find((q) => q.questId === questId);
+    if (!quest || quest.done) return;
+    const dailyQuests = state.dailyQuests.map((q) => (q.questId === questId ? { ...q, done: true } : q));
+    const allDone = dailyQuests.every((q) => q.done);
+    applyXp(set, get, 'completeSmallQuest', quest.xpReward + (allDone ? DAILY_COMPLETION_BONUS : 0), questId, {
+      dailyQuests,
+    });
+  },
+
+  damageBoss: (index) => {
+    const state = get();
+    const item = state.boss.checklist[index];
+    if (!item || item.done) return;
+    const checklist = state.boss.checklist.map((c, i) => (i === index ? { ...c, done: true } : c));
+    const health = Math.max(0, state.boss.health - item.damage);
+    const defeated = health === 0;
+    applyXp(set, get, defeated ? 'bossDefeated' : 'completeSmallQuest',
+      defeated ? state.boss.xpReward : XP_REWARDS.completeSmallQuest, state.boss.bossId, {
+        boss: { ...state.boss, checklist, health, defeatedAt: defeated ? nowIso() : null },
+      });
+  },
+
+  moveTeamTask: (teamTaskId, status) => {
+    const state = get();
+    const task = state.teamTasks.find((t) => t.teamTaskId === teamTaskId);
+    if (!task || task.status === status) return;
+    const teamTasks = state.teamTasks.map((t) => (t.teamTaskId === teamTaskId ? { ...t, status } : t));
+    const justMerged = status === 'Merged' && task.status !== 'Merged';
+    const isMine = state.teamMembers.find((m) => m.teamMemberId === task.assignedUserId)?.userId === state.user.userId;
+
+    set({ teamTasks, team: { ...state.team, totalXp: state.team.totalXp + (justMerged ? task.xpReward : 0) } });
+    if (justMerged && isMine) applyXp(set, get, 'completeTeamTask', XP_REWARDS.completeTeamTask, teamTaskId, { teamTasks });
+  },
+
+  saveReflection: (reflection) => {
+    const state = get();
+    const exists = state.reflections.some((r) => r.weekStart === reflection.weekStart);
+    const reflections = exists
+      ? state.reflections.map((r) => (r.weekStart === reflection.weekStart ? reflection : r))
+      : [reflection, ...state.reflections];
+    applyXp(set, get, 'completeReflection', exists ? 0 : XP_REWARDS.completeReflection, reflection.reflectionId, { reflections });
+  },
+
+  setModuleGrade: (moduleId, grade) =>
+    set((s) => ({ modules: s.modules.map((m) => (m.moduleId === moduleId ? { ...m, currentGrade: grade } : m)) })),
+
+  setTargetCgpa: (value) => set({ targetCgpa: value }),
+
+  regenerateSchedule: () =>
+    set((s) => ({ plannedSessions: generateWeeklySchedule(s.tasks, s.modules, s.plannerPreferences) })),
+
+  movePlannedSession: (sessionId, day) =>
+    set((s) => ({ plannedSessions: s.plannedSessions.map((p) => (p.sessionId === sessionId ? { ...p, day } : p)) })),
+
+  togglePlannedSession: (sessionId) => {
+    const state = get();
+    const session = state.plannedSessions.find((p) => p.sessionId === sessionId);
+    if (!session) return;
+    const plannedSessions = state.plannedSessions.map((p) =>
+      p.sessionId === sessionId ? { ...p, completed: !p.completed } : p);
+    set({ plannedSessions });
+    if (!session.completed) get().logStudyBlock(session.durationMinutes, session.taskId);
+  },
+
+  setPreferences: (prefs) =>
+    set((s) => ({ plannerPreferences: { ...s.plannerPreferences, ...prefs } })),
+
+  equipItem: (unlockId) =>
+    set((s) => {
+      const target = s.petUnlocks.find((u) => u.unlockId === unlockId);
+      if (!target) return {};
+      return {
+        petUnlocks: s.petUnlocks.map((u) =>
+          u.itemType === target.itemType
+            ? { ...u, equipped: u.unlockId === unlockId ? !u.equipped : false }
+            : u),
+      };
+    }),
+
+  dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
+  setPetMood: (mood) => set({ petMood: mood }),
+}));
+
+/**
+ * Shared tail of the automation flow. Adds XP, recomputes level/rank, updates
+ * the streak, checks badge conditions and fires the pet evolution animation.
+ */
+function applyXp(
+  set: (partial: Partial<StoreState>) => void,
+  get: () => StoreState,
+  activityType: string,
+  amount: number,
+  referenceId: string,
+  extra: Partial<StoreState>,
+) {
+  const state = get();
+  const result = awardXp({
+    userId: state.user.userId,
+    currentTotalXp: state.user.totalXp,
+    activityType,
+    amount,
+    referenceId,
+  });
+
+  const streak = updateStreak(
+    { currentStreak: state.user.currentStreak, freezeTokens: state.user.freezeTokens, lastActiveDate: state.user.lastActiveDate },
+    state.user.userId,
+  );
+
+  const sessions = (extra.sessions ?? state.sessions);
+  const tasks = (extra.tasks ?? state.tasks);
+  const todayKey = toDateKey(new Date());
+  const minutesToday = sessions
+    .filter((s) => s.completedAt && toDateKey(s.completedAt) === todayKey)
+    .reduce((sum, s) => sum + s.durationMinutes, 0);
+
+  const newBadges: Badge[] = checkBadgeUnlocks(
+    {
+      sessionsCompleted: sessions.filter((s) => s.completedAt).length,
+      minutesInADay: minutesToday,
+      streakDays: streak.currentStreak,
+      earlySubmissions: tasks.filter((t) => t.completedAt && new Date(t.completedAt) < new Date(t.deadline)).length,
+      clashesSurvived: 0,
+      cgpaGain: 0,
+      perfectWeeks: 0,
+      bossesDefeated: (extra.boss ?? state.boss).health === 0 ? 1 : 0,
+      teamTasksCompleted: (extra.teamTasks ?? state.teamTasks).filter((t) => t.status === 'Merged').length,
+      comebackStreak: 0,
+    },
+    state.unlockedBadgeIds,
+  );
+
+  const toasts: Toast[] = [];
+  if (amount > 0) toasts.push({ id: crypto.randomUUID(), title: `+${amount} XP`, body: activityType, tone: 'xp' });
+  if (result.leveledUp) toasts.push({ id: crypto.randomUUID(), title: `Level ${result.currentLevel}`, body: `Rank: ${result.currentRank}`, tone: 'level' });
+  if (result.petEvolved) toasts.push({ id: crypto.randomUUID(), title: 'Byte evolved', body: `Now a ${determinePetStage(result.currentLevel)}`, tone: 'level' });
+  newBadges.forEach((b) => toasts.push({ id: crypto.randomUUID(), title: `Badge: ${b.badgeName}`, body: b.description, tone: 'badge' }));
+
+  set({
+    ...extra,
+    user: {
+      ...state.user,
+      totalXp: result.totalXp,
+      currentLevel: result.currentLevel,
+      currentRank: calculateRank(result.currentLevel),
+      currentStreak: streak.currentStreak,
+      freezeTokens: streak.freezeTokens,
+      lastActiveDate: streak.lastActiveDate,
+    },
+    streakRecords: state.streakRecords.some((r) => r.streakDate === streak.record.streakDate)
+      ? state.streakRecords
+      : [streak.record, ...state.streakRecords],
+    unlockedBadgeIds: [...state.unlockedBadgeIds, ...newBadges.map((b) => b.badgeId)],
+    toasts: [...state.toasts, ...toasts].slice(-4),
+  });
+
+  if (result.petEvolved) {
+    set({ petMood: 'evolving' });
+    setTimeout(() => useStore.setState({ petMood: 'idle' }), 1600);
+  }
+}
