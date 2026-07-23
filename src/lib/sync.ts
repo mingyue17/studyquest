@@ -210,6 +210,17 @@ export function pushTasks(userId: string, tasks: Task[]) {
   });
 }
 
+/**
+ * Upsert only ever adds/updates rows — it never removes ones missing from the
+ * array, so a manually deleted task needs its own explicit delete call.
+ * Not debounced: deletes should land immediately, not get coalesced away.
+ */
+export function deleteTaskRemote(userId: string, taskId: string) {
+  if (!supabase) return;
+  supabase.from('tasks').delete().eq('userId', userId).eq('taskId', taskId)
+    .then(({ error }) => { if (error) console.error('StudyQuest sync (delete task):', error.message); });
+}
+
 export function pushSessions(userId: string, sessions: StudySession[]) {
   if (!supabase || sessions.length === 0) return;
   debounced(`sessions:${userId}`, () => {

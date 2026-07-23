@@ -1,7 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { Plus } from 'lucide-react';
 import { PixelPanel } from '@/components/ui/PixelPanel';
+import { PixelButton } from '@/components/ui/PixelButton';
 import { useStore } from '@/store/useStore';
 import {
   calculateGpa, requiredSemesterGpa, projectGpa, explainRequirement, GRADE_OPTIONS,
@@ -11,6 +13,8 @@ export default function GpaGoalPage() {
   const { modules, grades, targetGpa } = useStore();
   const setModuleGrade = useStore((s) => s.setModuleGrade);
   const setTargetGpa = useStore((s) => s.setTargetGpa);
+  const addModule = useStore((s) => s.addModule);
+  const [showAddModule, setShowAddModule] = useState(false);
 
   const currentGpa = useMemo(
     () => calculateGpa(grades.map((g) => ({ grade: g.grade, moduleCredits: g.moduleCredits }))),
@@ -95,7 +99,14 @@ export default function GpaGoalPage() {
         </PixelPanel>
       </div>
 
-      <PixelPanel title="Current semester modules" accent="cyan">
+      <PixelPanel
+        title="Current semester modules"
+        accent="cyan"
+        action={<PixelButton tone={showAddModule ? 'ghost' : 'cyan'} onClick={() => setShowAddModule((v) => !v)}>
+          {showAddModule ? 'Cancel' : <><Plus className="mr-1.5 inline h-3 w-3" aria-hidden />Add module</>}
+        </PixelButton>}
+      >
+        {showAddModule && <AddModuleForm onAdd={addModule} onDone={() => setShowAddModule(false)} />}
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -155,5 +166,41 @@ export default function GpaGoalPage() {
         </div>
       </PixelPanel>
     </div>
+  );
+}
+
+function AddModuleForm({
+  onAdd, onDone,
+}: {
+  onAdd: (input: { moduleCode: string; moduleName: string; moduleCredits: number }) => void;
+  onDone: () => void;
+}) {
+  const [moduleCode, setModuleCode] = useState('');
+  const [moduleName, setModuleName] = useState('');
+  const [moduleCredits, setModuleCredits] = useState(3);
+  const [error, setError] = useState<string | null>(null);
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!moduleCode.trim() || !moduleName.trim()) { setError('Fill in both the module code and name.'); return; }
+    onAdd({ moduleCode, moduleName, moduleCredits });
+    onDone();
+  };
+
+  return (
+    <form onSubmit={submit} className="mb-4 grid gap-2 border-2 border-navy-700 bg-navy-950 p-3 sm:grid-cols-4">
+      <input value={moduleCode} onChange={(e) => setModuleCode(e.target.value)} placeholder="Code, e.g. C299"
+        className="focus-ring border-2 border-navy-600 bg-navy-900 px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-600" />
+      <input value={moduleName} onChange={(e) => setModuleName(e.target.value)} placeholder="Module name"
+        className="focus-ring border-2 border-navy-600 bg-navy-900 px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 sm:col-span-2" />
+      <input type="number" min={1} max={10} value={moduleCredits} onChange={(e) => setModuleCredits(Number(e.target.value))}
+        aria-label="Module Credits (MC)"
+        className="focus-ring border-2 border-navy-600 bg-navy-900 px-2 py-1.5 text-sm text-slate-200" />
+      {error && <p className="border-2 border-neon-red bg-neon-red/10 p-2 text-xs text-neon-red sm:col-span-4">{error}</p>}
+      <div className="flex gap-2 sm:col-span-4">
+        <PixelButton type="submit" tone="cyan">Add module</PixelButton>
+        <PixelButton type="button" tone="ghost" onClick={onDone}>Cancel</PixelButton>
+      </div>
+    </form>
   );
 }

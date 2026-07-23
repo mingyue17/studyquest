@@ -20,7 +20,7 @@ import { colorForName, suggestTeammateAdvice } from '@/lib/team';
 import {
   fetchAllForUser, bootstrapNewUser, pushUser, pushModules, pushTasks, pushSessions,
   pushGrades, pushStreakRecords, pushPetUnlocks, pushReflections, pushBoss,
-  pushPreferences, pushPlannedSessions,
+  pushPreferences, pushPlannedSessions, deleteTaskRemote,
 } from '@/lib/sync';
 import type { PetMood } from '@/types';
 
@@ -74,6 +74,21 @@ interface StoreState {
   equipItem: (unlockId: string) => void;
   dismissToast: (id: string) => void;
   setPetMood: (mood: PetMood) => void;
+
+  // manual entry — for anything not already synced in from SNAPP/PoliteMall/Teams
+  addModule: (input: { moduleCode: string; moduleName: string; moduleCredits: number }) => Module;
+  addTask: (input: {
+    title: string;
+    moduleId: string | null;
+    deadline: string; // ISO
+    taskType: string;
+    weightage: number;
+    estimatedHours: number;
+    difficulty: number;
+    isFinal: boolean;
+    isGroupTask: boolean;
+  }) => void;
+  deleteTask: (taskId: string) => void;
 
   // auth-backed persistence
   hydrate: (authUserId: string, email: string, name?: string) => Promise<void>;
@@ -308,6 +323,63 @@ export const useStore = create<StoreState>((set, get) => ({
 
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
   setPetMood: (mood) => set({ petMood: mood }),
+
+  /** For a module SNAPP/PoliteMall/Teams hasn't surfaced yet — student adds it themselves. */
+  addModule: (input) => {
+    const state = get();
+    const module: Module = {
+      moduleId: crypto.randomUUID(),
+      userId: state.user.userId,
+      moduleCode: input.moduleCode.trim().toUpperCase(),
+      moduleName: input.moduleName.trim(),
+      moduleCredits: input.moduleCredits,
+      currentGrade: null,
+      isWeak: false,
+    };
+    set({ modules: [...state.modules, module] });
+    return module;
+  },
+
+  /** Same idea, for a task — source is always 'Manual' so it's visually distinct from imported ones. */
+  addTask: (input) => {
+    const state = get();
+    const xpReward = input.isFinal
+      ? 300
+      : input.weightage >= 15 ? XP_REWARDS.completeAssignment : XP_REWARDS.completeSmallQuest;
+
+    const task: Task = {
+      taskId: crypto.randomUUID(),
+      userId: state.user.userId,
+      moduleId: input.moduleId,
+      parentTaskId: null,
+      title: input.title.trim(),
+      source: 'Manual',
+      deadline: input.deadline,
+      status: 'To Do',
+      priorityScore: 0,
+      difficulty: input.difficulty,
+      xpReward,
+      isFinal: input.isFinal,
+      estimatedHours: input.estimatedHours,
+      weightage: input.weightage,
+      progress: 0,
+      taskType: input.taskType,
+      isGroupTask: input.isGroupTask,
+      completedAt: null,
+    };
+    task.priorityScore = calculatePriorityScore(task);
+
+    const tasks = [...state.tasks, task];
+    set({ tasks, dailyQuests: generateDailyQuests(tasks, state.sessions) });
+  },
+
+  deleteTask: (taskId) => {
+    const state = get();
+    // Also drop any subquests split off this task.
+    const tasks = state.tasks.filter((t) => t.taskId !== taskId && t.parentTaskId !== taskId);
+    set({ tasks, dailyQuests: generateDailyQuests(tasks, state.sessions) });
+    if (state.authUserId) deleteTaskRemote(state.authUserId, taskId);
+  },
 
   /**
    * Runs once per sign-in. Loads the account's real data from Supabase, or —
