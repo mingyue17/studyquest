@@ -20,6 +20,7 @@ create table if not exists users (
   "freezeTokens"  integer not null default 0 check ("freezeTokens" between 0 and 2),
   "lastActiveDate" date,
   "selectedPetId" uuid,
+  "targetGpa"     numeric(3,2) not null default 3.70,
   "createdAt"     timestamptz not null default now()
 );
 
@@ -215,6 +216,27 @@ create table if not exists "bossBattles" (
   "defeatedAt"  timestamptz
 );
 
+-- ---------- AI planner ----------
+
+create table if not exists "plannerPreferences" (
+  "userId"               uuid primary key references users("userId") on delete cascade,
+  "availableHoursPerDay" jsonb not null default '[2,3,2,3,2,4,4]'::jsonb,
+  "preferredStartHour"   integer not null default 20,
+  "sessionMinutes"       integer not null default 60,
+  "updatedAt"            timestamptz not null default now()
+);
+
+create table if not exists "plannedSessions" (
+  "sessionId"       uuid primary key default gen_random_uuid(),
+  "userId"          uuid not null references users("userId") on delete cascade,
+  "taskId"          uuid references tasks("taskId") on delete cascade,
+  "day"             integer not null check ("day" between 0 and 6), -- 0 = Monday
+  "startHour"       integer not null,
+  "durationMinutes" integer not null default 60,
+  "completed"       boolean not null default false
+);
+create index if not exists planned_sessions_user_idx on "plannedSessions"("userId");
+
 -- ---------- row level security ----------
 -- Every user-scoped table is readable/writable only by its owner.
 
@@ -224,7 +246,8 @@ begin
   foreach t in array array[
     'users','modules','tasks','studySessions','grades','userBadges',
     'xpTransactions','streakRecords','petUnlocks','reflections',
-    'notifications','platformImports','bossBattles'
+    'notifications','platformImports','bossBattles',
+    'plannerPreferences','plannedSessions'
   ] loop
     execute format('alter table %I enable row level security', t);
   end loop;
@@ -239,7 +262,8 @@ begin
   foreach t in array array[
     'modules','tasks','studySessions','grades','userBadges',
     'xpTransactions','streakRecords','petUnlocks','reflections',
-    'notifications','platformImports','bossBattles'
+    'notifications','platformImports','bossBattles',
+    'plannerPreferences','plannedSessions'
   ] loop
     execute format(
       'create policy "own rows" on %I for all using (auth.uid() = "userId") with check (auth.uid() = "userId")', t);

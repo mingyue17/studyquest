@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { Press_Start_2P, Inter } from 'next/font/google';
 import { Nav } from '@/components/Nav';
 import { Toasts } from '@/components/ui/Toasts';
+import { AuthProvider } from '@/components/AuthProvider';
+import { AuthGate } from '@/components/AuthGate';
 import './globals.css';
 
 // Display face: an actual 8-bit face, used only for headings and stats.
@@ -37,11 +39,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
       </head>
       <body>
-        <Nav />
-        <main className="lg:pl-60">
-          <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">{children}</div>
-        </main>
-        <Toasts />
+        <AuthProvider>
+          <AuthGate>
+            <Nav />
+            <main className="lg:pl-60">
+              <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8">{children}</div>
+            </main>
+            <Toasts />
+          </AuthGate>
+        </AuthProvider>
       </body>
     </html>
   );

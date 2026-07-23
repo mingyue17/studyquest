@@ -17,11 +17,19 @@ import { updateStreak, toDateKey } from '@/lib/streaks';
 import { checkBadgeUnlocks, generateDailyQuests, DAILY_COMPLETION_BONUS } from '@/lib/quests';
 import { DEFAULT_PREFERENCES, generateWeeklySchedule, type PlannerPreferences } from '@/lib/planner';
 import { colorForName, suggestTeammateAdvice } from '@/lib/team';
+import {
+  fetchAllForUser, bootstrapNewUser, pushUser, pushModules, pushTasks, pushSessions,
+  pushGrades, pushStreakRecords, pushPetUnlocks, pushReflections, pushBoss,
+  pushPreferences, pushPlannedSessions,
+} from '@/lib/sync';
 import type { PetMood } from '@/types';
 
 interface Toast { id: string; title: string; body: string; tone: 'xp' | 'level' | 'badge' | 'warn' }
 
 interface StoreState {
+  authUserId: string | null;
+  hydrated: boolean;
+  hydrating: boolean;
   user: User;
   modules: Module[];
   tasks: Task[];
@@ -66,11 +74,18 @@ interface StoreState {
   equipItem: (unlockId: string) => void;
   dismissToast: (id: string) => void;
   setPetMood: (mood: PetMood) => void;
+
+  // auth-backed persistence
+  hydrate: (authUserId: string, email: string, name?: string) => Promise<void>;
+  signOutLocal: () => void;
 }
 
 const nowIso = () => new Date().toISOString();
 
 export const useStore = create<StoreState>((set, get) => ({
+  authUserId: null,
+  hydrated: false,
+  hydrating: false,
   user: demoUser,
   modules: demoModules,
   tasks: demoTasks,
@@ -293,7 +308,88 @@ export const useStore = create<StoreState>((set, get) => ({
 
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
   setPetMood: (mood) => set({ petMood: mood }),
+
+  /**
+   * Runs once per sign-in. Loads the account's real data from Supabase, or —
+   * for a brand-new account — gives it a starter dataset and saves that as
+   * the first real save. Team data stays the shared local demo team for now
+   * (no invite flow yet); everything else becomes this account's own.
+   */
+  hydrate: async (authUserId, email, name) => {
+    set({ hydrating: true });
+    try {
+      const existing = await fetchAllForUser(authUserId);
+      const data = existing ?? await bootstrapNewUser(authUserId, email, name?.trim() || email.split('@')[0]);
+
+      set({
+        authUserId,
+        user: data.user,
+        modules: data.modules,
+        tasks: data.tasks,
+        sessions: data.sessions,
+        grades: data.grades,
+        streakRecords: data.streakRecords,
+        petUnlocks: data.petUnlocks,
+        reflections: data.reflections,
+        notifications: data.notifications,
+        boss: data.boss ?? demoBoss,
+        plannerPreferences: data.plannerPreferences,
+        plannedSessions: data.plannedSessions,
+        unlockedBadgeIds: existing ? get().unlockedBadgeIds : [],
+        dailyQuests: generateDailyQuests(data.tasks, data.sessions),
+        targetGpa: data.targetGpa,
+        hydrated: true,
+        hydrating: false,
+      });
+    } catch (err) {
+      console.error('StudyQuest hydrate failed, staying on local data:', err);
+      set({ hydrating: false });
+    }
+  },
+
+  /** Sign-out: drop back to a clean slate so the next login doesn't flash the previous account's data. */
+  signOutLocal: () => set({
+    authUserId: null,
+    hydrated: false,
+    user: demoUser,
+    modules: demoModules,
+    tasks: demoTasks,
+    sessions: demoSessions,
+    streakRecords: demoStreakRecords,
+    grades: demoGrades,
+    petUnlocks: demoPetUnlocks,
+    reflections: demoReflections,
+    notifications: demoNotifications,
+    boss: demoBoss,
+    unlockedBadgeIds: demoUnlockedBadgeIds,
+    dailyQuests: generateDailyQuests(demoTasks, demoSessions),
+    targetGpa: 3.7,
+  }),
 }));
+
+/**
+ * Write-through sync: whenever a persisted slice changes for a hydrated,
+ * signed-in account, push it to Supabase (debounced inside each push* call).
+ * Local-only slices (team, badges, dailyQuests) are deliberately not listed —
+ * see the note at the top of lib/sync.ts.
+ */
+let prevSynced = useStore.getState();
+useStore.subscribe((state) => {
+  if (!state.hydrated || !state.authUserId) { prevSynced = state; return; }
+  const uid = state.authUserId;
+  if (state.user !== prevSynced.user || state.targetGpa !== prevSynced.targetGpa) pushUser(uid, state.user, state.targetGpa);
+  if (state.modules !== prevSynced.modules) pushModules(uid, state.modules);
+  if (state.tasks !== prevSynced.tasks) pushTasks(uid, state.tasks);
+  if (state.sessions !== prevSynced.sessions) pushSessions(uid, state.sessions);
+  if (state.grades !== prevSynced.grades) pushGrades(uid, state.grades);
+  if (state.streakRecords !== prevSynced.streakRecords) pushStreakRecords(uid, state.streakRecords);
+  if (state.petUnlocks !== prevSynced.petUnlocks) pushPetUnlocks(uid, state.petUnlocks);
+  if (state.reflections !== prevSynced.reflections) pushReflections(uid, state.reflections);
+  if (state.boss !== prevSynced.boss) pushBoss(uid, state.boss);
+  if (state.plannerPreferences !== prevSynced.plannerPreferences) pushPreferences(uid, state.plannerPreferences);
+  if (state.plannedSessions !== prevSynced.plannedSessions) pushPlannedSessions(uid, state.plannedSessions);
+  prevSynced = state;
+});
 
 /**
  * Shared tail of the automation flow. Adds XP, recomputes level/rank, updates
