@@ -9,7 +9,7 @@
 \set demoUser '11111111-1111-1111-1111-111111111111'
 
 insert into users ("userId","name","email","totalXp","currentLevel","currentRank","currentStreak","freezeTokens","lastActiveDate")
-values (:'demoUser','Soesan','soesan@myrp.edu.sg',3120,7,'Scholar',9,1,current_date)
+values (:'demoUser','Adam','adam@myrp.edu.sg',3120,7,'Scholar',9,1,current_date)
 on conflict ("userId") do nothing;
 
 -- ---------- modules (Year 2 DAAA) ----------
@@ -89,7 +89,7 @@ insert into teams ("teamId","teamName","totalXp","currentLevel","currentStreak")
 values ('d1000000-0000-0000-0000-000000000001','ByteBuilders',1840,5,4);
 
 insert into "teamMembers" ("teamMemberId","teamId","userId","displayName","role","avatarColor") values
-  ('e1000000-0000-0000-0000-000000000001','d1000000-0000-0000-0000-000000000001',:'demoUser','Soesan','Data Lead','#39ff6a'),
+  ('e1000000-0000-0000-0000-000000000001','d1000000-0000-0000-0000-000000000001',:'demoUser','Adam','Data Lead','#39ff6a'),
   ('e1000000-0000-0000-0000-000000000002','d1000000-0000-0000-0000-000000000001',null,'Firdaus','Solution Lead','#22e0ff'),
   ('e1000000-0000-0000-0000-000000000003','d1000000-0000-0000-0000-000000000001',null,'Kai Xin','Comms Lead','#ff4fd8'),
   ('e1000000-0000-0000-0000-000000000004','d1000000-0000-0000-0000-000000000001',null,'Rayyan','Media Lead','#ffd23f'),

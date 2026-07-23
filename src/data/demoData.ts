@@ -1,14 +1,17 @@
 /**
- * Seed data for the offline demo. Dates are generated relative to "now" so the
- * dashboard always looks alive — clashes, overdue work and the final all stay
- * in the right place no matter when the app is opened.
+ * Seed data for the offline demo — Adam, Year 2 Diploma in Applied AI &
+ * Analytics (DAAA), School of Infocomm, Republic Polytechnic. Dates are
+ * generated relative to "now" so the dashboard always looks alive — clashes,
+ * overdue work and the final assessment stay in the right place no matter
+ * when the app is opened.
  */
 import type {
-  BossBattle, Grade, Module, Notification, Pet, PetUnlock, Reflection,
+  BossBattle, ChecklistItem, Grade, Module, Notification, Pet, PetUnlock, Reflection,
   StreakRecord, StudySession, Task, Team, TeamMember, TeamTask, User,
 } from '@/types';
 import { calculatePriorityScore } from '@/lib/priority';
 import { toDateKey } from '@/lib/streaks';
+import { colorForName } from '@/lib/team';
 
 const DEMO_USER_ID = '11111111-1111-1111-1111-111111111111';
 
@@ -21,8 +24,8 @@ const inDays = (days: number, hour = 23, minute = 59) => {
 
 export const demoUser: User = {
   userId: DEMO_USER_ID,
-  name: 'Ming',
-  email: 'ming@myrp.edu.sg',
+  name: 'Adam',
+  email: 'adam@myrp.edu.sg',
   totalXp: 3120,          // → level 7, Baby stage pet
   currentLevel: 7,
   currentRank: 'Scholar',
@@ -33,30 +36,30 @@ export const demoUser: User = {
 };
 
 export const demoModules: Module[] = [
-  { moduleId: 'm-2001', userId: DEMO_USER_ID, moduleCode: 'SC2001', moduleName: 'Algorithms & Data Structures', academicUnits: 4, currentGrade: 'B+', isWeak: true },
-  { moduleId: 'm-2005', userId: DEMO_USER_ID, moduleCode: 'SC2005', moduleName: 'Operating Systems', academicUnits: 3, currentGrade: 'A-', isWeak: false },
-  { moduleId: 'm-2006', userId: DEMO_USER_ID, moduleCode: 'SC2006', moduleName: 'Software Engineering', academicUnits: 3, currentGrade: 'A', isWeak: false },
-  { moduleId: 'm-2008', userId: DEMO_USER_ID, moduleCode: 'SC2008', moduleName: 'Computer Networks', academicUnits: 3, currentGrade: 'B', isWeak: true },
-  { moduleId: 'm-0007', userId: DEMO_USER_ID, moduleCode: 'CC0007', moduleName: 'Science & Technology for Humanity', academicUnits: 2, currentGrade: 'A-', isWeak: false },
+  { moduleId: 'm-c240', userId: DEMO_USER_ID, moduleCode: 'C240', moduleName: 'AI Essentials and Innovations', moduleCredits: 4, currentGrade: 'B+', isWeak: false },
+  { moduleId: 'm-c245', userId: DEMO_USER_ID, moduleCode: 'C245', moduleName: 'Data Analytics with GenAI', moduleCredits: 3, currentGrade: 'A', isWeak: false },
+  { moduleId: 'm-c207', userId: DEMO_USER_ID, moduleCode: 'C207', moduleName: 'Database Systems', moduleCredits: 3, currentGrade: 'B', isWeak: true },
+  { moduleId: 'm-c230', userId: DEMO_USER_ID, moduleCode: 'C230', moduleName: 'Data Wrangling and Automation', moduleCredits: 4, currentGrade: 'B+', isWeak: true },
+  { moduleId: 'm-c206', userId: DEMO_USER_ID, moduleCode: 'C206', moduleName: 'Software Development Process', moduleCredits: 3, currentGrade: 'A', isWeak: false },
 ];
 
 type RawTask = Omit<Task, 'userId' | 'parentTaskId' | 'priorityScore'>;
 
 const rawTasks: RawTask[] = [
   // --- the clash: two heavy pieces landing on the same evening ---
-  { taskId: 't-1', moduleId: 'm-2001', title: 'Dijkstra & MST Programming Assignment', source: 'SNAPP', deadline: inDays(3), status: 'In Progress', difficulty: 5, xpReward: 80, isFinal: false, estimatedHours: 12, weightage: 25, progress: 30, taskType: 'Assignment', isGroupTask: false },
-  { taskId: 't-2', moduleId: 'm-2008', title: 'Network Layer Lab Report', source: 'PoliteMall', deadline: inDays(3, 18), status: 'To Do', difficulty: 3, xpReward: 80, isFinal: false, estimatedHours: 8, weightage: 20, progress: 0, taskType: 'Lab', isGroupTask: false },
+  { taskId: 't-1', moduleId: 'm-c240', title: 'C240 AI Innovation Prototype Demo', source: 'SNAPP', deadline: inDays(3), status: 'In Progress', difficulty: 5, xpReward: 80, isFinal: false, estimatedHours: 12, weightage: 30, progress: 30, taskType: 'Practical Assessment', isGroupTask: true },
+  { taskId: 't-2', moduleId: 'm-c230', title: 'C230 Data Cleaning Workflow', source: 'PoliteMall', deadline: inDays(3, 18), status: 'To Do', difficulty: 3, xpReward: 80, isFinal: false, estimatedHours: 8, weightage: 20, progress: 0, taskType: 'Continuous Assessment', isGroupTask: false },
 
-  // --- the final boss ---
-  { taskId: 't-3', moduleId: 'm-2001', title: 'SC2001 Final Exam', source: 'SNAPP', deadline: inDays(24, 9), status: 'To Do', difficulty: 5, xpReward: 300, isFinal: true, estimatedHours: 30, weightage: 50, progress: 15, taskType: 'Exam', isGroupTask: false },
+  // --- the final assessments (RP's term for end-of-module exams/capstones) ---
+  { taskId: 't-3', moduleId: 'm-c245', title: 'C245 Data Analytics Dashboard — Final Assessment', source: 'SNAPP', deadline: inDays(24, 9), status: 'To Do', difficulty: 5, xpReward: 300, isFinal: true, estimatedHours: 26, weightage: 50, progress: 15, taskType: 'Final Assessment', isGroupTask: false },
+  { taskId: 't-10', moduleId: 'm-c207', title: 'C207 Database Systems — Final Assessment', source: 'SNAPP', deadline: inDays(27, 9), status: 'To Do', difficulty: 4, xpReward: 300, isFinal: true, estimatedHours: 18, weightage: 45, progress: 0, taskType: 'Final Assessment', isGroupTask: false },
 
-  { taskId: 't-4', moduleId: 'm-2006', title: 'Team5_ECG Sprint 2 Deliverable', source: 'Teams', deadline: inDays(6), status: 'In Progress', difficulty: 4, xpReward: 80, isFinal: false, estimatedHours: 10, weightage: 30, progress: 45, taskType: 'Project', isGroupTask: true },
-  { taskId: 't-5', moduleId: 'm-2005', title: 'Process Scheduling Quiz', source: 'PoliteMall', deadline: inDays(1, 20), status: 'To Do', difficulty: 2, xpReward: 30, isFinal: false, estimatedHours: 2, weightage: 10, progress: 0, taskType: 'Quiz', isGroupTask: false },
-  { taskId: 't-6', moduleId: 'm-0007', title: 'Ethics Reflection Essay', source: 'PoliteMall', deadline: inDays(9), status: 'To Do', difficulty: 2, xpReward: 80, isFinal: false, estimatedHours: 4, weightage: 15, progress: 0, taskType: 'Assignment', isGroupTask: false },
-  { taskId: 't-7', moduleId: 'm-2005', title: 'Read Ch.7 — Deadlocks', source: 'Teams', deadline: inDays(2, 22), status: 'To Do', difficulty: 1, xpReward: 30, isFinal: false, estimatedHours: 1.5, weightage: 0, progress: 0, taskType: 'Reading', isGroupTask: false },
-  { taskId: 't-8', moduleId: 'm-2006', title: 'Requirements Doc Peer Review', source: 'Teams', deadline: inDays(-1, 17), status: 'Submitted', difficulty: 2, xpReward: 30, isFinal: false, estimatedHours: 2, weightage: 5, progress: 100, taskType: 'Assignment', isGroupTask: true, completedAt: inDays(-2) },
-  { taskId: 't-9', moduleId: 'm-2008', title: 'Subnetting Practice Set', source: 'SNAPP', deadline: inDays(-4, 23), status: 'Submitted', difficulty: 2, xpReward: 30, isFinal: false, estimatedHours: 2, weightage: 5, progress: 100, taskType: 'Quiz', isGroupTask: false, completedAt: inDays(-5) },
-  { taskId: 't-10', moduleId: 'm-2005', title: 'SC2005 Final Exam', source: 'SNAPP', deadline: inDays(27, 9), status: 'To Do', difficulty: 4, xpReward: 300, isFinal: true, estimatedHours: 20, weightage: 45, progress: 0, taskType: 'Exam', isGroupTask: false },
+  { taskId: 't-4', moduleId: 'm-c240', title: 'ByteBuilders Sprint 2 — StudyQuest Demo', source: 'Teams', deadline: inDays(6), status: 'In Progress', difficulty: 4, xpReward: 80, isFinal: false, estimatedHours: 10, weightage: 25, progress: 45, taskType: 'Team Project', isGroupTask: true },
+  { taskId: 't-5', moduleId: 'm-c207', title: 'C207 Database Normalisation Quiz', source: 'PoliteMall', deadline: inDays(1, 20), status: 'To Do', difficulty: 2, xpReward: 30, isFinal: false, estimatedHours: 2, weightage: 10, progress: 0, taskType: 'Continuous Assessment', isGroupTask: false },
+  { taskId: 't-6', moduleId: 'm-c206', title: 'C206 Sprint Review and Reflection', source: 'PoliteMall', deadline: inDays(9), status: 'To Do', difficulty: 2, xpReward: 80, isFinal: false, estimatedHours: 4, weightage: 15, progress: 0, taskType: 'Reflection', isGroupTask: false },
+  { taskId: 't-7', moduleId: 'm-c206', title: 'Read Ch.7 — Agile Sprint Planning', source: 'Teams', deadline: inDays(2, 22), status: 'To Do', difficulty: 1, xpReward: 30, isFinal: false, estimatedHours: 1.5, weightage: 0, progress: 0, taskType: 'Reading', isGroupTask: false },
+  { taskId: 't-8', moduleId: 'm-c206', title: 'Requirements Doc Peer Review', source: 'Teams', deadline: inDays(-1, 17), status: 'Submitted', difficulty: 2, xpReward: 30, isFinal: false, estimatedHours: 2, weightage: 5, progress: 100, taskType: 'Continuous Assessment', isGroupTask: true, completedAt: inDays(-2) },
+  { taskId: 't-9', moduleId: 'm-c230', title: 'Data Wrangling Practice Set', source: 'SNAPP', deadline: inDays(-4, 23), status: 'Submitted', difficulty: 2, xpReward: 30, isFinal: false, estimatedHours: 2, weightage: 5, progress: 100, taskType: 'Continuous Assessment', isGroupTask: false, completedAt: inDays(-5) },
 ];
 
 export const demoTasks: Task[] = rawTasks.map((t) => {
@@ -89,13 +92,14 @@ export const demoStreakRecords: StreakRecord[] = Array.from({ length: 9 }, (_, i
   };
 });
 
+// Past grades from Year 1 modules — kept generic/plausible for a DAAA Y1 transcript.
 export const demoGrades: Grade[] = [
-  { gradeId: 'g-1', userId: DEMO_USER_ID, moduleId: null, moduleCode: 'CZ1003', grade: 'A-', academicUnits: 3, semester: 'Y1S1' },
-  { gradeId: 'g-2', userId: DEMO_USER_ID, moduleId: null, moduleCode: 'CZ1006', grade: 'B+', academicUnits: 3, semester: 'Y1S1' },
-  { gradeId: 'g-3', userId: DEMO_USER_ID, moduleId: null, moduleCode: 'MH1812', grade: 'B', academicUnits: 4, semester: 'Y1S1' },
-  { gradeId: 'g-4', userId: DEMO_USER_ID, moduleId: null, moduleCode: 'CZ1007', grade: 'A', academicUnits: 3, semester: 'Y1S2' },
-  { gradeId: 'g-5', userId: DEMO_USER_ID, moduleId: null, moduleCode: 'CZ1011', grade: 'B+', academicUnits: 3, semester: 'Y1S2' },
-  { gradeId: 'g-6', userId: DEMO_USER_ID, moduleId: null, moduleCode: 'CC0001', grade: 'A-', academicUnits: 2, semester: 'Y1S2' },
+  { gradeId: 'g-1', userId: DEMO_USER_ID, moduleId: null, moduleCode: 'C102', grade: 'B+', moduleCredits: 3, semester: 'Y1S1' },
+  { gradeId: 'g-2', userId: DEMO_USER_ID, moduleId: null, moduleCode: 'C104', grade: 'A', moduleCredits: 3, semester: 'Y1S1' },
+  { gradeId: 'g-3', userId: DEMO_USER_ID, moduleId: null, moduleCode: 'C110', grade: 'B', moduleCredits: 4, semester: 'Y1S1' },
+  { gradeId: 'g-4', userId: DEMO_USER_ID, moduleId: null, moduleCode: 'C120', grade: 'A', moduleCredits: 3, semester: 'Y1S2' },
+  { gradeId: 'g-5', userId: DEMO_USER_ID, moduleId: null, moduleCode: 'C125', grade: 'B+', moduleCredits: 3, semester: 'Y1S2' },
+  { gradeId: 'g-6', userId: DEMO_USER_ID, moduleId: null, moduleCode: 'C130', grade: 'A', moduleCredits: 2, semester: 'Y1S2' },
 ];
 
 export const demoPets: Pet[] = [
@@ -115,39 +119,46 @@ export const demoPetUnlocks: PetUnlock[] = [
 ];
 
 export const demoTeam: Team = {
-  teamId: 'team-ecg', teamName: 'Team5_ECG', totalXp: 1840, currentLevel: 5, currentStreak: 4,
+  teamId: 'team-bytebuilders', teamName: 'ByteBuilders', totalXp: 1840, currentLevel: 5, currentStreak: 4,
 };
 
+const member = (id: string, displayName: string, role: string, userId: string | null = null): TeamMember => ({
+  teamMemberId: id, teamId: 'team-bytebuilders', userId, displayName, role, avatarColor: colorForName(displayName),
+});
+
 export const demoTeamMembers: TeamMember[] = [
-  { teamMemberId: 'tm-1', teamId: 'team-ecg', userId: DEMO_USER_ID, displayName: 'Ming', role: 'Data Lead' },
-  { teamMemberId: 'tm-2', teamId: 'team-ecg', userId: null, displayName: 'Wei Jie', role: 'Solution Lead' },
-  { teamMemberId: 'tm-3', teamId: 'team-ecg', userId: null, displayName: 'Nadia', role: 'Comms' },
-  { teamMemberId: 'tm-4', teamId: 'team-ecg', userId: null, displayName: 'Arjun', role: 'Media' },
-  { teamMemberId: 'tm-5', teamId: 'team-ecg', userId: null, displayName: 'Shermaine', role: 'QA' },
+  member('tm-1', 'Adam', 'Data Lead', DEMO_USER_ID),
+  member('tm-2', 'Firdaus', 'Solution Lead'),
+  member('tm-3', 'Kai Xin', 'Comms Lead'),
+  member('tm-4', 'Rayyan', 'Media Lead'),
+  member('tm-5', 'Vanessa', 'QA Lead'),
 ];
 
+const checklist = (labels: [string, boolean][]): ChecklistItem[] =>
+  labels.map(([label, done], i) => ({ itemId: `ci-${label.slice(0, 4)}-${i}`, label, done }));
+
 export const demoTeamTasks: TeamTask[] = [
-  { teamTaskId: 'tt-1', teamId: 'team-ecg', assignedUserId: 'tm-1', title: 'Clean ECG signal dataset', status: 'Merged', deadline: inDays(-3), xpReward: 40, blocker: null },
-  { teamTaskId: 'tt-2', teamId: 'team-ecg', assignedUserId: 'tm-2', title: 'Build peak detection module', status: 'In Progress', deadline: inDays(4), xpReward: 40, blocker: null },
-  { teamTaskId: 'tt-3', teamId: 'team-ecg', assignedUserId: 'tm-5', title: 'Write test harness', status: 'Review', deadline: inDays(2), xpReward: 40, blocker: 'Waiting on peak detection API shape' },
-  { teamTaskId: 'tt-4', teamId: 'team-ecg', assignedUserId: 'tm-3', title: 'Draft sprint 2 report', status: 'Backlog', deadline: inDays(6), xpReward: 40, blocker: null },
-  { teamTaskId: 'tt-5', teamId: 'team-ecg', assignedUserId: 'tm-4', title: 'Record demo video', status: 'Backlog', deadline: inDays(6), xpReward: 40, blocker: null },
-  { teamTaskId: 'tt-6', teamId: 'team-ecg', assignedUserId: 'tm-1', title: 'Feature engineering notebook', status: 'In Progress', deadline: inDays(5), xpReward: 40, blocker: null },
-  { teamTaskId: 'tt-7', teamId: 'team-ecg', assignedUserId: 'tm-1', title: 'Data dictionary', status: 'Backlog', deadline: inDays(7), xpReward: 40, blocker: null },
+  { teamTaskId: 'tt-1', teamId: 'team-bytebuilders', assignedUserId: 'tm-1', title: 'Clean StudyQuest usage dataset', status: 'Merged', deadline: inDays(-3), xpReward: 40, blocker: null, checklist: checklist([['Export raw logs', true], ['Remove duplicate sessions', true]]) },
+  { teamTaskId: 'tt-2', teamId: 'team-bytebuilders', assignedUserId: 'tm-2', title: 'Build XP calculation module', status: 'In Progress', deadline: inDays(4), xpReward: 40, blocker: null, checklist: checklist([['Draft award logic', true], ['Write unit tests', false]]) },
+  { teamTaskId: 'tt-3', teamId: 'team-bytebuilders', assignedUserId: 'tm-5', title: 'Write test harness', status: 'Review', deadline: inDays(2), xpReward: 40, blocker: 'Waiting on XP module API shape', checklist: checklist([['Set up test runner', true], ['Cover XP edge cases', false]]) },
+  { teamTaskId: 'tt-4', teamId: 'team-bytebuilders', assignedUserId: 'tm-3', title: 'Draft AI Innovation Prototype script', status: 'Backlog', deadline: inDays(6), xpReward: 40, blocker: null, checklist: checklist([['Outline demo flow', false]]) },
+  { teamTaskId: 'tt-5', teamId: 'team-bytebuilders', assignedUserId: 'tm-4', title: 'Record demo video', status: 'Backlog', deadline: inDays(6), xpReward: 40, blocker: null, checklist: checklist([['Storyboard shots', false]]) },
+  { teamTaskId: 'tt-6', teamId: 'team-bytebuilders', assignedUserId: 'tm-1', title: 'Feature engineering notebook', status: 'In Progress', deadline: inDays(5), xpReward: 40, blocker: null, checklist: checklist([['Load cleaned dataset', true], ['Engineer streak features', false]]) },
+  { teamTaskId: 'tt-7', teamId: 'team-bytebuilders', assignedUserId: 'tm-1', title: 'Data dictionary', status: 'Backlog', deadline: inDays(7), xpReward: 40, blocker: null, checklist: checklist([['List all tables', false]]) },
 ];
 
 export const demoBoss: BossBattle = {
   bossId: 'boss-1',
   userId: DEMO_USER_ID,
   taskId: 't-3',
-  bossName: 'SC2001 Final Exam',
+  bossName: 'C245 Final Assessment',
   health: 85,
   xpReward: 300,
   checklist: [
-    { label: 'Review all lectures', damage: 20, done: true },
+    { label: 'Review all lecture material', damage: 20, done: true },
     { label: 'Complete tutorial practice', damage: 20, done: false },
     { label: 'Finish one past-year paper', damage: 30, done: false },
-    { label: 'Complete mock test', damage: 30, done: false },
+    { label: 'Complete mock assessment', damage: 30, done: false },
   ],
   defeatedAt: null,
 };
@@ -155,24 +166,24 @@ export const demoBoss: BossBattle = {
 export const demoReflections: Reflection[] = [
   {
     reflectionId: 'r-1', userId: DEMO_USER_ID, weekStart: inDays(-7).slice(0, 10),
-    completedTasks: 'Finished the subnetting set and the peer review. Started the Dijkstra assignment.',
-    delays: 'Lost Tuesday and Wednesday to the Team5 sprint meeting overrun.',
-    focusModule: 'SC2001', stressLevel: 4,
-    nextWeekChange: 'Block two evenings for SC2001 before touching group work.',
+    completedTasks: 'Finished the data wrangling practice set and the peer review. Started the C240 prototype demo.',
+    delays: 'Lost Tuesday and Wednesday to the ByteBuilders sprint meeting overrun.',
+    focusModule: 'C240', stressLevel: 4,
+    nextWeekChange: 'Block two evenings for C240 before touching team project work.',
     aiSummary: {
       mainAchievement: 'Cleared two smaller tasks early and kept a 9-day streak alive.',
-      mainProblem: 'Group work absorbed the midweek evenings that were meant for SC2001.',
+      mainProblem: 'Team project work absorbed the midweek evenings meant for C240.',
       studyPattern: 'Most sessions land after 8pm, longest blocks on weekends.',
-      suggestedImprovement: 'Cap team meetings at one evening and protect Tuesday for algorithms.',
-      recommendedFocusModule: 'SC2001',
+      suggestedImprovement: 'Cap team meetings at one evening and protect Tuesday for C240.',
+      recommendedFocusModule: 'C240',
     },
   },
 ];
 
 export const demoNotifications: Notification[] = [
-  { notificationId: 'n-1', userId: DEMO_USER_ID, title: 'Deadline clash ahead', message: 'Two tasks land within 36 hours in 3 days. Start the lab report early.', type: 'warning', read: false, createdAt: inDays(0, 8) },
+  { notificationId: 'n-1', userId: DEMO_USER_ID, title: 'Deadline clash ahead', message: 'Two tasks land within 36 hours in 3 days. Start the C230 workflow early.', type: 'warning', read: false, createdAt: inDays(0, 8) },
   { notificationId: 'n-2', userId: DEMO_USER_ID, title: 'Freeze token earned', message: 'Seven-day streak reached. One token stored.', type: 'success', read: true, createdAt: inDays(-2, 9) },
-  { notificationId: 'n-3', userId: DEMO_USER_ID, title: 'Boss weakened', message: 'SC2001 Final dropped to 85% health.', type: 'info', read: true, createdAt: inDays(-3, 16) },
+  { notificationId: 'n-3', userId: DEMO_USER_ID, title: 'Boss weakened', message: 'C245 Final Assessment dropped to 85% health.', type: 'info', read: true, createdAt: inDays(-3, 16) },
 ];
 
 export const demoUnlockedBadgeIds = ['b1', 'b2', 'b4'];

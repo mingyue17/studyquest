@@ -28,7 +28,7 @@ export interface Module {
   userId: string;
   moduleCode: string;
   moduleName: string;
-  academicUnits: number;
+  moduleCredits: number; // RP "MC" — Modular Credits
   currentGrade: string | null;
   isWeak?: boolean; // flagged by the student, feeds the planner
 }
@@ -70,7 +70,7 @@ export interface Grade {
   moduleId: string | null;
   moduleCode: string;
   grade: string;
-  academicUnits: number;
+  moduleCredits: number;
   semester: string;
 }
 
@@ -133,6 +133,13 @@ export interface TeamMember {
   userId: string | null;
   displayName: string;
   role: string;
+  avatarColor: string; // deterministic accent used for the AI-generated initials avatar
+}
+
+export interface ChecklistItem {
+  itemId: string;
+  label: string;
+  done: boolean;
 }
 
 export interface TeamTask {
@@ -144,6 +151,7 @@ export interface TeamTask {
   deadline: string | null;
   xpReward: number;
   blocker: string | null;
+  checklist: ChecklistItem[];
 }
 
 export interface ReflectionSummary {

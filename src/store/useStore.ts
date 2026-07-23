@@ -2,7 +2,7 @@
 
 import { create } from 'zustand';
 import type {
-  Badge, BossBattle, DailyQuest, Grade, Module, Notification, PetUnlock,
+  Badge, BossBattle, ChecklistItem, DailyQuest, Grade, Module, Notification, PetUnlock,
   PlannedSession, Reflection, StreakRecord, StudySession, Task, TaskStatus,
   Team, TeamMember, TeamTask, TeamTaskStatus, User,
 } from '@/types';
@@ -16,6 +16,7 @@ import { calculatePriorityScore, generateSubquests } from '@/lib/priority';
 import { updateStreak, toDateKey } from '@/lib/streaks';
 import { checkBadgeUnlocks, generateDailyQuests, DAILY_COMPLETION_BONUS } from '@/lib/quests';
 import { DEFAULT_PREFERENCES, generateWeeklySchedule, type PlannerPreferences } from '@/lib/planner';
+import { colorForName, suggestTeammateAdvice } from '@/lib/team';
 import type { PetMood } from '@/types';
 
 interface Toast { id: string; title: string; body: string; tone: 'xp' | 'level' | 'badge' | 'warn' }
@@ -38,9 +39,10 @@ interface StoreState {
   dailyQuests: DailyQuest[];
   plannerPreferences: PlannerPreferences;
   plannedSessions: PlannedSession[];
-  targetCgpa: number;
+  targetGpa: number;
   petMood: PetMood;
   toasts: Toast[];
+  teammateAdvice: { complaint: string; text: string } | null;
 
   // actions
   logStudyBlock: (minutes?: number, taskId?: string) => void;
@@ -50,9 +52,13 @@ interface StoreState {
   completeDailyQuest: (questId: string) => void;
   damageBoss: (index: number) => void;
   moveTeamTask: (teamTaskId: string, status: TeamTaskStatus) => void;
+  addTeamMember: (displayName: string, role: string) => void;
+  addChecklistItem: (teamTaskId: string, label: string) => void;
+  toggleChecklistItem: (teamTaskId: string, itemId: string) => void;
+  askTeammateAdvice: (complaint: string) => void;
   saveReflection: (reflection: Reflection) => void;
   setModuleGrade: (moduleId: string, grade: string) => void;
-  setTargetCgpa: (value: number) => void;
+  setTargetGpa: (value: number) => void;
   regenerateSchedule: () => void;
   movePlannedSession: (sessionId: string, day: number) => void;
   togglePlannedSession: (sessionId: string) => void;
@@ -88,9 +94,10 @@ export const useStore = create<StoreState>((set, get) => ({
     ...DEFAULT_PREFERENCES,
     weakModuleCodes: demoModules.filter((m) => m.isWeak).map((m) => m.moduleCode),
   }),
-  targetCgpa: 4.3,
+  targetGpa: 3.7,
   petMood: 'idle',
   toasts: [],
+  teammateAdvice: null,
 
   /**
    * Automation flow, steps 8–12: award XP → check badges → update streak →
@@ -201,6 +208,44 @@ export const useStore = create<StoreState>((set, get) => ({
     if (justMerged && isMine) applyXp(set, get, 'completeTeamTask', XP_REWARDS.completeTeamTask, teamTaskId, { teamTasks });
   },
 
+  addTeamMember: (displayName, role) => {
+    const state = get();
+    if (!displayName.trim()) return;
+    const newMember: TeamMember = {
+      teamMemberId: crypto.randomUUID(),
+      teamId: state.team.teamId,
+      userId: null,
+      displayName: displayName.trim(),
+      role: role.trim() || 'Member',
+      avatarColor: colorForName(displayName.trim()),
+    };
+    set({ teamMembers: [...state.teamMembers, newMember] });
+  },
+
+  addChecklistItem: (teamTaskId, label) => {
+    if (!label.trim()) return;
+    const item: ChecklistItem = { itemId: crypto.randomUUID(), label: label.trim(), done: false };
+    set((s) => ({
+      teamTasks: s.teamTasks.map((t) =>
+        t.teamTaskId === teamTaskId ? { ...t, checklist: [...t.checklist, item] } : t),
+    }));
+  },
+
+  toggleChecklistItem: (teamTaskId, itemId) =>
+    set((s) => ({
+      teamTasks: s.teamTasks.map((t) =>
+        t.teamTaskId === teamTaskId
+          ? { ...t, checklist: t.checklist.map((c) => (c.itemId === itemId ? { ...c, done: !c.done } : c)) }
+          : t),
+    })),
+
+  askTeammateAdvice: (complaint) => {
+    if (!complaint.trim()) return;
+    const state = get();
+    const advice = suggestTeammateAdvice(complaint, state.teamTasks, state.teamMembers);
+    set({ teammateAdvice: { complaint, text: advice.text } });
+  },
+
   saveReflection: (reflection) => {
     const state = get();
     const exists = state.reflections.some((r) => r.weekStart === reflection.weekStart);
@@ -213,7 +258,7 @@ export const useStore = create<StoreState>((set, get) => ({
   setModuleGrade: (moduleId, grade) =>
     set((s) => ({ modules: s.modules.map((m) => (m.moduleId === moduleId ? { ...m, currentGrade: grade } : m)) })),
 
-  setTargetCgpa: (value) => set({ targetCgpa: value }),
+  setTargetGpa: (value) => set({ targetGpa: value }),
 
   regenerateSchedule: () =>
     set((s) => ({ plannedSessions: generateWeeklySchedule(s.tasks, s.modules, s.plannerPreferences) })),

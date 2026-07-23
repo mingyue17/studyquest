@@ -9,7 +9,7 @@ export const BADGES: Badge[] = [
   { badgeId: 'b3', badgeName: 'Consistency King', description: 'Hold a 14-day streak.', conditionType: 'streakDays', conditionValue: 14, icon: '👑' },
   { badgeId: 'b4', badgeName: 'Early Bird', description: 'Submit 3 tasks before the deadline day.', conditionType: 'earlySubmissions', conditionValue: 3, icon: '🌅' },
   { badgeId: 'b5', badgeName: 'Clash Survivor', description: 'Clear every task in a deadline clash on time.', conditionType: 'clashesSurvived', conditionValue: 1, icon: '⚔️' },
-  { badgeId: 'b6', badgeName: 'Grade Climber', description: 'Raise your projected CGPA by 0.3.', conditionType: 'cgpaGain', conditionValue: 0.3, icon: '📈' },
+  { badgeId: 'b6', badgeName: 'Grade Climber', description: 'Raise your projected GPA by 0.3.', conditionType: 'cgpaGain', conditionValue: 0.3, icon: '📈' },
   { badgeId: 'b7', badgeName: 'Perfect Week', description: 'Finish every planned session in a week.', conditionType: 'perfectWeeks', conditionValue: 1, icon: '💎' },
   { badgeId: 'b8', badgeName: 'Final Boss Defeated', description: 'Bring a boss battle to 0% health.', conditionType: 'bossesDefeated', conditionValue: 1, icon: '🐉' },
   { badgeId: 'b9', badgeName: 'Comeback Student', description: 'Rebuild a 7-day streak after breaking one.', conditionType: 'comebackStreak', conditionValue: 7, icon: '🔁' },

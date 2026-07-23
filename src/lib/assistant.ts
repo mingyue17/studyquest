@@ -1,14 +1,14 @@
 import type { Grade, Module, Task, TeamTask } from '@/types';
 import { detectDeadlineClashes } from './priority';
 import { recommendTonight, generateWeeklySchedule, DAY_NAMES, DEFAULT_PREFERENCES } from './planner';
-import { calculateCgpa, requiredSemesterGpa, explainRequirement } from './gpa';
+import { calculateGpa, requiredSemesterGpa, explainRequirement } from './gpa';
 
 export interface AssistantContext {
   tasks: Task[];
   modules: Module[];
   grades: Grade[];
   teamTasks: TeamTask[];
-  targetCgpa: number;
+  targetGpa: number;
 }
 
 export interface AssistantReply { text: string; sources: string[] }
@@ -58,10 +58,10 @@ function answerClashes(ctx: AssistantContext): AssistantReply {
 }
 
 function answerGpa(ctx: AssistantContext): AssistantReply {
-  const current = calculateCgpa(ctx.grades);
-  const req = requiredSemesterGpa({ pastGrades: ctx.grades, currentModules: ctx.modules, targetCgpa: ctx.targetCgpa });
+  const current = calculateGpa(ctx.grades.map((g) => ({ grade: g.grade, moduleCredits: g.moduleCredits })));
+  const req = requiredSemesterGpa({ pastGrades: ctx.grades, currentModules: ctx.modules, targetGpa: ctx.targetGpa });
   return {
-    text: `Your CGPA is ${current.toFixed(2)} and your target is ${ctx.targetCgpa.toFixed(2)}. This semester needs roughly a ${req.required.toFixed(2)} GPA. ${explainRequirement(req.required, req.achievable, req.alreadyThere)}`,
+    text: `Your GPA is ${current.toFixed(2)} and your target is ${ctx.targetGpa.toFixed(2)}. This semester needs roughly a ${req.required.toFixed(2)} GPA. ${explainRequirement(req.required, req.achievable, req.alreadyThere)}`,
     sources: ['grades', 'modules'],
   };
 }
