@@ -14,9 +14,28 @@ export const metadata: Metadata = {
   description: 'Deadlines from SNAPP, PoliteMall and Teams in one place, with a study plan that actually fits your week.',
 };
 
+// Runs before React hydrates so the correct theme is set on first paint —
+// no flash of dark-then-light (or vice versa) on load.
+const THEME_INIT_SCRIPT = `
+(function () {
+  try {
+    var stored = localStorage.getItem('studyquest-theme');
+    var theme = stored === 'light' || stored === 'dark'
+      ? stored
+      : (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', theme);
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'dark');
+  }
+})();
+`;
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${pixel.variable} ${inter.variable}`}>
+    <html lang="en" data-theme="dark" className={`${pixel.variable} ${inter.variable}`}>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body>
         <Nav />
         <main className="lg:pl-60">

@@ -1,18 +1,38 @@
 import type { Config } from 'tailwindcss';
 
+// Colors read from CSS variables (set in globals.css) so the whole app can
+// swap dark/light theme by flipping one attribute on <html>. The variable
+// stores "R G B" so Tailwind opacity modifiers (e.g. bg-navy-900/80) still work.
+const withOpacity = (varName: string) => `rgb(var(${varName}) / <alpha-value>)`;
+
 const config: Config = {
   content: ['./src/**/*.{ts,tsx}'],
   theme: {
     extend: {
       colors: {
-        // Dark navy arcade cabinet
-        navy: { 950: '#070b1f', 900: '#0b1130', 800: '#121a44', 700: '#1b2560', 600: '#28337a' },
+        // Arcade cabinet palette — dark navy by default, swaps to light in globals.css
+        navy: {
+          950: withOpacity('--c-navy-950'),
+          900: withOpacity('--c-navy-900'),
+          800: withOpacity('--c-navy-800'),
+          700: withOpacity('--c-navy-700'),
+          600: withOpacity('--c-navy-600'),
+        },
+        slate: {
+          100: withOpacity('--c-slate-100'),
+          200: withOpacity('--c-slate-200'),
+          300: withOpacity('--c-slate-300'),
+          400: withOpacity('--c-slate-400'),
+          500: withOpacity('--c-slate-500'),
+          600: withOpacity('--c-slate-600'),
+          700: withOpacity('--c-slate-700'),
+        },
         neon: {
-          green: '#39ff6a',
-          cyan: '#22e0ff',
-          pink: '#ff4fd8',
-          yellow: '#ffd23f',
-          red: '#ff5470',
+          green: withOpacity('--c-neon-green'),
+          cyan: withOpacity('--c-neon-cyan'),
+          pink: withOpacity('--c-neon-pink'),
+          yellow: withOpacity('--c-neon-yellow'),
+          red: withOpacity('--c-neon-red'),
         },
       },
       fontFamily: {

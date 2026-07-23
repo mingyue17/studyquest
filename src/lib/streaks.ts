@@ -109,20 +109,51 @@ function buildRecord(userId: string, streakDate: string, freezeUsed: boolean): S
   };
 }
 
-/** Builds the GitHub-style contribution grid for the last `weeks` weeks. */
+export interface CalendarDeadline {
+  moduleCode: string;
+  title: string;
+  deadline: string; // ISO
+}
+
+export interface CalendarCell {
+  date: string;
+  minutes: number;
+  freezeUsed: boolean;
+  intensity: 0 | 1 | 2 | 3 | 4;
+  isFuture: boolean;
+  isToday: boolean;
+  deadlines: CalendarDeadline[];
+}
+
+/**
+ * Builds the GitHub-style contribution grid for the last `weeks` weeks, plus
+ * `aheadWeeks` weeks into the future so upcoming deadlines have a day to
+ * land on. `deadlines` are matched to the day cell they fall on.
+ */
 export function buildStudyCalendar(
   records: StreakRecord[],
   minutesByDate: Record<string, number>,
   weeks = 20,
-) {
-  const cells: { date: string; minutes: number; freezeUsed: boolean; intensity: 0 | 1 | 2 | 3 | 4 }[] = [];
+  deadlines: CalendarDeadline[] = [],
+  aheadWeeks = 3,
+): CalendarCell[] {
+  const cells: CalendarCell[] = [];
   const today = new Date();
+  const todayKey = toDateKey(today);
   const start = new Date(today);
   start.setDate(start.getDate() - weeks * 7 + 1);
+  const end = new Date(today);
+  end.setDate(end.getDate() + aheadWeeks * 7);
 
   const freezeDates = new Set(records.filter((r) => r.freezeUsed).map((r) => r.streakDate));
 
-  for (let d = new Date(start); d <= today; d.setDate(d.getDate() + 1)) {
+  const deadlinesByDate: Record<string, CalendarDeadline[]> = {};
+  deadlines.forEach((dl) => {
+    const key = toDateKey(dl.deadline);
+    (deadlinesByDate[key] ??= []).push(dl);
+  });
+
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
     const key = toDateKey(d);
     const minutes = minutesByDate[key] ?? 0;
     cells.push({
@@ -130,6 +161,9 @@ export function buildStudyCalendar(
       minutes,
       freezeUsed: freezeDates.has(key),
       intensity: minutes === 0 ? 0 : minutes < 30 ? 1 : minutes < 60 ? 2 : minutes < 120 ? 3 : 4,
+      isFuture: key > todayKey,
+      isToday: key === todayKey,
+      deadlines: (deadlinesByDate[key] ?? []).sort((a, b) => +new Date(a.deadline) - +new Date(b.deadline)),
     });
   }
   return cells;

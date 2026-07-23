@@ -15,6 +15,15 @@ export function formatDeadline(iso: string): string {
   return `${d.toLocaleDateString('en-SG', { weekday: 'short', day: 'numeric', month: 'short' })} ${time}`;
 }
 
+/** Compact "24/7, 2359" style — used on the study calendar where space is tight. */
+export function formatDeadlineCompact(iso: string): string {
+  const d = new Date(iso);
+  const day = d.getDate();
+  const month = d.getMonth() + 1;
+  const time = `${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}`;
+  return `${day}/${month}, ${time}`;
+}
+
 export function countdown(iso: string): string {
   const ms = new Date(iso).getTime() - Date.now();
   if (ms <= 0) return 'now';

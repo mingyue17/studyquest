@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { levelProgress } from '@/lib/gamification';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const LINKS = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -35,6 +36,7 @@ export function Nav() {
           <span className="flex items-center gap-1 font-pixel text-[9px] text-neon-yellow">
             <Flame className="h-3.5 w-3.5" aria-hidden />{user.currentStreak}
           </span>
+          <ThemeToggle compact />
           <button
             onClick={() => setOpen((v) => !v)}
             className="focus-ring border-2 border-navy-600 p-1.5 text-slate-300"
@@ -80,6 +82,9 @@ export function Nav() {
         </ul>
 
         <div className="border-t-2 border-navy-700 p-4 lg:absolute lg:inset-x-0 lg:bottom-0">
+          <div className="mb-3 hidden lg:block">
+            <ThemeToggle />
+          </div>
           <p className="font-pixel text-[9px] text-slate-400">
             LV {user.currentLevel} · {user.currentRank}
           </p>
