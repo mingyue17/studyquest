@@ -10,7 +10,7 @@ import { answerQuestion, SUGGESTED_PROMPTS } from '@/lib/assistant';
 interface ChatMessage { id: string; role: 'user' | 'assistant'; text: string }
 
 export default function AssistantPage() {
-  const { tasks, modules, grades, teamTasks, targetGpa, user } = useStore();
+  const { tasks, modules, grades, teamTasks, targetGpa } = useStore();
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: 'welcome', role: 'assistant', text: "Hi Adam — ask me about tonight's study plan, deadline clashes, your GPA target, or what's blocking the team." },
   ]);
@@ -29,7 +29,7 @@ export default function AssistantPage() {
     setInput('');
     setThinking(true);
 
-    const reply = await answerQuestion(text, { tasks, modules, grades, teamTasks, targetGpa, user });
+    const reply = await answerQuestion(text, { tasks, modules, grades, teamTasks, targetGpa });
     setThinking(false);
     setMessages((m) => [...m, { id: crypto.randomUUID(), role: 'assistant', text: reply.text }]);
   };
