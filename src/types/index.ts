@@ -233,3 +233,13 @@ export interface DeadlineClash {
   titles: string[];
   totalHours: number;
 }
+
+/** Only the fields safe to show across students — see get_leaderboard() in supabase/schema.sql. */
+export interface LeaderboardEntry {
+  userId: string;
+  name: string;
+  totalXp: number;
+  currentLevel: number;
+  currentRank: Rank;
+  currentStreak: number;
+}

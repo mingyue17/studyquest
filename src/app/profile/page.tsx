@@ -3,6 +3,7 @@
 import { PixelPanel } from '@/components/ui/PixelPanel';
 import { ProgressBar } from '@/components/ui/ProgressBar';
 import { PetDisplay } from '@/components/pet/PetDisplay';
+import { Leaderboard } from '@/components/profile/Leaderboard';
 import { useStore } from '@/store/useStore';
 import { levelProgress, nextEvolutionLevel } from '@/lib/gamification';
 import { BADGES } from '@/lib/quests';
@@ -86,6 +87,8 @@ export default function ProfilePage() {
           </div>
         </PixelPanel>
       </div>
+
+      <Leaderboard />
 
       <PixelPanel title="Cosmetic unlocks" accent="pink">
         {petUnlocks.length === 0 ? (

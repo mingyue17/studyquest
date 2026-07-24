@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 import type {
-  BossBattle, Grade, Module, Notification, PetUnlock,
+  BossBattle, Grade, LeaderboardEntry, Module, Notification, PetUnlock,
   PlannedSession, Reflection, StreakRecord, StudySession, Task, User,
 } from '@/types';
 import type { PlannerPreferences } from './planner';
@@ -297,4 +297,12 @@ export function pushPlannedSessions(userId: string, sessions: PlannedSession[]) 
       })),
     ).then(({ error }) => { if (error) console.error('StudyQuest sync (planned sessions):', error.message); });
   });
+}
+
+/** Global ranking by XP — see get_leaderboard() in supabase/schema.sql, a SECURITY DEFINER function scoped to name/XP/level/rank/streak only. */
+export async function fetchLeaderboard(limit = 50): Promise<LeaderboardEntry[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase.rpc('get_leaderboard', { limit_count: limit });
+  if (error) { console.error('StudyQuest leaderboard fetch:', error.message); return []; }
+  return (data ?? []) as LeaderboardEntry[];
 }
