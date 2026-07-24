@@ -74,6 +74,7 @@ interface StoreState {
   equipItem: (unlockId: string) => void;
   dismissToast: (id: string) => void;
   setPetMood: (mood: PetMood) => void;
+  pushToast: (title: string, body: string, tone?: Toast['tone']) => void;
 
   // manual entry — for anything not already synced in from SNAPP/PoliteMall/Teams
   addModule: (input: { moduleCode: string; moduleName: string; moduleCredits: number }) => Module;
@@ -142,7 +143,7 @@ export const useStore = create<StoreState>((set, get) => ({
       durationMinutes: minutes,
       scheduledStart: nowIso(),
       completedAt: nowIso(),
-      xpEarned: Math.round((minutes / 30) * XP_REWARDS.logStudyBlock),
+      xpEarned: minutes > 0 ? Math.max(1, Math.round((minutes / 30) * XP_REWARDS.logStudyBlock)) : 0,
     };
     applyXp(set, get, 'logStudyBlock', session.xpEarned, session.sessionId, {
       sessions: [session, ...state.sessions],
@@ -323,6 +324,9 @@ export const useStore = create<StoreState>((set, get) => ({
 
   dismissToast: (id) => set((s) => ({ toasts: s.toasts.filter((t) => t.id !== id) })),
   setPetMood: (mood) => set({ petMood: mood }),
+  pushToast: (title, body, tone = 'xp') => set((s) => ({
+    toasts: [...s.toasts, { id: crypto.randomUUID(), title, body, tone }].slice(-4),
+  })),
 
   /** For a module SNAPP/PoliteMall/Teams hasn't surfaced yet — student adds it themselves. */
   addModule: (input) => {

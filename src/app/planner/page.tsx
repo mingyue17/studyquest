@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { RefreshCw, Moon, AlertTriangle, ArrowRight } from 'lucide-react';
 import { PixelPanel } from '@/components/ui/PixelPanel';
 import { PixelButton } from '@/components/ui/PixelButton';
+import { StudyTimer } from '@/components/planner/StudyTimer';
 import { useStore } from '@/store/useStore';
 import {
   DAY_NAMES, detectOverloadedDays, recommendTonight, suggestEarlierStarts,
@@ -45,6 +46,8 @@ export default function PlannerPage() {
           <RefreshCw className="mr-1.5 inline h-3 w-3" aria-hidden />Regenerate schedule
         </PixelButton>
       </header>
+
+      <StudyTimer tasks={tasks} />
 
       {tonight && (
         <PixelPanel title="Study tonight" accent="yellow">
