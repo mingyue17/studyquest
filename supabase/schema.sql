@@ -30,7 +30,8 @@ create table if not exists modules (
   "moduleCode"    text not null,
   "moduleName"    text not null,
   "moduleCredits" numeric(3,1) not null default 3,
-  "currentGrade"  text
+  "currentGrade"  text,
+  "isWeak"        boolean not null default false
 );
 create index if not exists modules_user_idx on modules("userId");
 
