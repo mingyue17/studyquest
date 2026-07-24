@@ -30,13 +30,20 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({ question: body.question, context: body.context }),
       signal: AbortSignal.timeout(25_000),
     });
-    if (!upstream.ok) return NextResponse.json({ error: 'upstream_error' }, { status: 502 });
+    if (!upstream.ok) {
+      console.error('StudyQuest assistant: n8n responded with', upstream.status, await upstream.text().catch(() => ''));
+      return NextResponse.json({ error: 'upstream_error' }, { status: 502 });
+    }
 
     const data = await upstream.json();
-    if (typeof data?.answer !== 'string') return NextResponse.json({ error: 'no_answer' }, { status: 502 });
+    if (typeof data?.answer !== 'string') {
+      console.error('StudyQuest assistant: n8n response missing "answer"', JSON.stringify(data));
+      return NextResponse.json({ error: 'no_answer' }, { status: 502 });
+    }
 
     return NextResponse.json({ answer: data.answer });
-  } catch {
+  } catch (err) {
+    console.error('StudyQuest assistant: fetch to n8n failed —', err instanceof Error ? err.message : err);
     return NextResponse.json({ error: 'upstream_unreachable' }, { status: 502 });
   }
 }
