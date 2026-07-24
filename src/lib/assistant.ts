@@ -1,4 +1,4 @@
-import type { Grade, Module, Task, TeamTask } from '@/types';
+import type { Grade, Module, Task, TeamTask, User } from '@/types';
 import { detectDeadlineClashes } from './priority';
 import { recommendTonight, generateWeeklySchedule, DAY_NAMES, DEFAULT_PREFERENCES } from './planner';
 import { calculateGpa, requiredSemesterGpa, explainRequirement } from './gpa';
@@ -9,16 +9,61 @@ export interface AssistantContext {
   grades: Grade[];
   teamTasks: TeamTask[];
   targetGpa: number;
+  user?: Pick<User, 'name' | 'totalXp' | 'currentLevel' | 'currentStreak'>;
 }
 
 export interface AssistantReply { text: string; sources: string[] }
 
+/** Turns the raw app state into the text block sent to the real model — grounded, nothing invented, capped so the prompt stays small. */
+export function buildContextString(ctx: AssistantContext): string {
+  const lines: string[] = [];
+  if (ctx.user) lines.push(`Student: ${ctx.user.name}. Level ${ctx.user.currentLevel}, ${ctx.user.totalXp} XP, ${ctx.user.currentStreak}-day streak.`);
+
+  const currentGpa = calculateGpa(ctx.grades.map((g) => ({ grade: g.grade, moduleCredits: g.moduleCredits })));
+  lines.push(`Current GPA: ${currentGpa.toFixed(2)}. Target GPA: ${ctx.targetGpa.toFixed(2)}.`);
+
+  const openTasks = ctx.tasks
+    .filter((t) => t.status !== 'Submitted' && !t.parentTaskId)
+    .sort((a, b) => +new Date(a.deadline) - +new Date(b.deadline))
+    .slice(0, 12);
+  lines.push(openTasks.length ? 'Open tasks (soonest first):' : 'No open tasks right now.');
+  openTasks.forEach((t) => {
+    const modCode = ctx.modules.find((m) => m.moduleId === t.moduleId)?.moduleCode ?? 'GEN';
+    lines.push(`- ${modCode} "${t.title}" — due ${new Date(t.deadline).toLocaleString()}, ${t.weightage}% of grade, ${t.progress}% done, status ${t.status}${t.isFinal ? ' (FINAL)' : ''}`);
+  });
+
+  const blockedTeam = ctx.teamTasks.filter((t) => t.blocker && t.status !== 'Merged');
+  if (blockedTeam.length) lines.push(`Blocked team tasks: ${blockedTeam.map((t) => `"${t.title}" (${t.blocker})`).join('; ')}`);
+
+  return lines.join('\n');
+}
+
+/** Calls the real model via the n8n-backed /api/assistant route. Returns null (never throws) if it's not configured or fails, so the caller can fall back. */
+async function tryRemoteAssistant(question: string, ctx: AssistantContext): Promise<AssistantReply | null> {
+  try {
+    const res = await fetch('/api/assistant', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question, context: buildContextString(ctx) }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (!data?.answer) return null;
+    return { text: data.answer, sources: ['ai'] };
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Rule-based answers driven entirely by database state. `answerQuestion` is the
- * single seam — swap its body for a fetch to /api/assistant (which can call
- * Claude with this same context object) and every caller keeps working.
+ * Answers with the real model first (via n8n — see /api/assistant); if that's
+ * not configured or fails, falls back to the rule-based logic below so the
+ * assistant still works with zero setup.
  */
 export async function answerQuestion(question: string, ctx: AssistantContext): Promise<AssistantReply> {
+  const remote = await tryRemoteAssistant(question, ctx);
+  if (remote) return remote;
+
   const q = question.toLowerCase();
 
   if (q.includes('tonight') || q.includes('work on now')) return answerTonight(ctx);
