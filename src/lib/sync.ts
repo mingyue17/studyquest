@@ -158,7 +158,12 @@ export async function bootstrapNewUser(userId: string, email: string, name: stri
     if (tasks.length) await supabase.from('tasks').upsert(tasks);
     if (notifications.length) await supabase.from('notifications').upsert(notifications);
     await supabase.from('bossBattles').upsert(boss);
-    await supabase.from('plannerPreferences').upsert({ userId, ...plannerPreferences });
+    await supabase.from('plannerPreferences').upsert({
+      userId,
+      availableHoursPerDay: plannerPreferences.availableHoursPerDay,
+      preferredStartHour: plannerPreferences.preferredStartHour,
+      sessionMinutes: plannerPreferences.sessionMinutes,
+    });
     if (plannedSessions.length) {
       await supabase.from('plannedSessions').upsert(
         plannedSessions.map((p) => ({
